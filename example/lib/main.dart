@@ -46,10 +46,11 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
 
-  final double _initFabHeight = 120.0;
+  final double _initFabHeight = 160.0;
   double _fabHeight;
-  double _panelHeightOpen;
-  double _panelHeightClosed = 95.0;
+  double _panelHeightOpen = 170;
+  double _panelHeightClosed = 140.0;
+  final _panelController = PanelController();
 
   @override
   void initState(){
@@ -60,8 +61,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context){
-    _panelHeightOpen = MediaQuery.of(context).size.height * .80;
-
     return Material(
       child: Stack(
         alignment: Alignment.topCenter,
@@ -73,23 +72,90 @@ class _HomePageState extends State<HomePage> {
             parallaxEnabled: true,
             parallaxOffset: .5,
             body: _body(),
-            panelBuilder: (sc) => _panel(sc),
+            panel: _panel(context),
             borderRadius: BorderRadius.only(topLeft: Radius.circular(18.0), topRight: Radius.circular(18.0)),
             onPanelSlide: (double pos) => setState((){
               _fabHeight = pos * (_panelHeightOpen - _panelHeightClosed) + _initFabHeight;
             }),
+            defaultPanelState: PanelState.HIDDEN,
+            controller: _panelController,
           ),
 
           // the fab
+//          Positioned(
+//            right: 20.0,
+//            bottom: _initFabHeight,
+//            child: FloatingActionButton(
+//              child: Icon(
+//                Icons.gps_fixed,
+//                color: Theme.of(context).primaryColor,
+//              ),
+//              onPressed: (){},
+//              backgroundColor: Colors.white,
+//            ),
+//          ),
+
           Positioned(
             right: 20.0,
-            bottom: _fabHeight,
+            bottom: _initFabHeight + 70,
             child: FloatingActionButton(
               child: Icon(
-                Icons.gps_fixed,
+                Icons.open_in_browser,
                 color: Theme.of(context).primaryColor,
               ),
-              onPressed: (){},
+              onPressed: (){
+                _panelController.show();
+              },
+              backgroundColor: Colors.white,
+            ),
+          ),
+
+          Positioned(
+            right: 20.0,
+            bottom: _initFabHeight + 140,
+            child: FloatingActionButton(
+              child: Icon(
+                Icons.close,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: (){
+                _panelController.hide();
+              },
+              backgroundColor: Colors.white,
+            ),
+          ),
+
+          Positioned(
+            right: 20.0,
+            bottom: _initFabHeight + 210,
+            child: FloatingActionButton(
+              child: Icon(
+                Icons.arrow_upward,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: (){
+                _panelHeightOpen += 30;
+                final _maxHeight = MediaQuery.of(context).size.height * .80;
+                if(_panelHeightOpen > _maxHeight)
+                  _panelHeightOpen = _maxHeight;
+              },
+              backgroundColor: Colors.white,
+            ),
+          ),
+
+          Positioned(
+            right: 20.0,
+            bottom: _initFabHeight + 280,
+            child: FloatingActionButton(
+              child: Icon(
+                Icons.arrow_downward,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: (){
+                _panelHeightOpen -= 30;
+                if(_panelHeightOpen < 170)
+                  _panelHeightOpen = 170;
+              },
               backgroundColor: Colors.white,
             ),
           ),
@@ -136,12 +202,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _panel(ScrollController sc){
+  Widget _panel(BuildContext context){
     return MediaQuery.removePadding(
       context: context,
       removeTop: true,
-      child: ListView(
-        controller: sc,
+      child: Column(
         children: <Widget>[
           SizedBox(height: 12.0,),
 
