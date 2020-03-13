@@ -204,16 +204,25 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
 
   bool _isPanelVisible;
   PanelState _panelState;
+  double _closedRelativeHeight;
+  double _lastMaxHeight;
+  double _lastMinHeight;
+
+  void _calcHeights(double newMaxValue, double newMinValue) {
+    _lastMaxHeight = newMaxValue;
+    _lastMinHeight = newMinValue;
+    _closedRelativeHeight = _lastMinHeight/_lastMaxHeight;
+  }
 
   @override
   void initState(){
     super.initState();
 
-    final _closeHeigh = (widget.maxHeight - widget.minHeight)/widget.maxHeight;
+    _calcHeights(widget.maxHeight, widget.minHeight);
 
     _isPanelVisible = _panelState != PanelState.HIDDEN;
     _panelState = widget.defaultPanelState;
-    _ac = new AnimationController(
+    _ac = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
       value: (){
@@ -223,24 +232,24 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
           case PanelState.OPEN:
             return 1.0;
           case PanelState.CLOSED:
-            return _closeHeigh;
+            return _closedRelativeHeight;
         }
         return 0.0;
       }()
-    )..addListener((){
+    )..addListener(() {
       setState((){});
 
       widget.onPanelSlide?.call(_ac.value);
 
-      if(widget.onPanelHided != null && _ac.value == 0.0) {
+      if(_ac.value == 0.0) {
         _panelState = PanelState.HIDDEN;
-        widget.onPanelHided();
+//        _isPanelVisible = false;
       }
-      if(widget.onPanelOpened != null && _ac.value == 1.0) {
-        widget.onPanelOpened();
+      if(_ac.value == 1.0) {
+        _panelState = PanelState.OPEN;
       }
-      if(widget.onPanelClosed != null && _ac.value == _closeHeigh) {
-        widget.onPanelClosed();
+      if(_ac.value == _closedRelativeHeight) {
+        widget.onPanelClosed?.call();
         if(_panelState == PanelState.HIDDEN)
           widget.onPanelShowed?.call();
         _panelState = PanelState.CLOSED;
@@ -391,9 +400,9 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
 
   double _getParallax(){
     if(widget.slideDirection == SlideDirection.UP)
-      return -_ac.value * (widget.maxHeight - widget.minHeight) * widget.parallaxOffset;
+      return -_ac.value * _lastMaxHeight * widget.parallaxOffset;
     else
-      return _ac.value * (widget.maxHeight - widget.minHeight) * widget.parallaxOffset;
+      return _ac.value * _lastMaxHeight * widget.parallaxOffset;
   }
 
   // handles the sliding gesture
@@ -402,9 +411,9 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
     // only slide the panel if scrolling is not enabled
     if(!_scrollingEnabled){
       if(widget.slideDirection == SlideDirection.UP)
-        _ac.value -= dy / (widget.maxHeight - widget.minHeight);
+        _ac.value -= dy / _lastMaxHeight;
       else
-        _ac.value += dy / (widget.maxHeight - widget.minHeight);
+        _ac.value += dy / _lastMaxHeight;
     }
 
     // if the panel is open and the user hasn't scrolled, we need to determine
@@ -434,7 +443,7 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
 
     //check if the velocity is sufficient to constitute fling
     if(velocity.pixelsPerSecond.dy.abs() >= minFlingVelocity){
-      double visualVelocity = - velocity.pixelsPerSecond.dy / (widget.maxHeight - widget.minHeight);
+      double visualVelocity = - velocity.pixelsPerSecond.dy / (widget.maxHeight);
 
       if(widget.slideDirection == SlideDirection.DOWN)
         visualVelocity = -visualVelocity;
@@ -455,10 +464,18 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
 
     // check if the controller is already halfway there
     if (widget.panelSnapping) {
-      if(_ac.value > (0.5 + widget.minHeight/widget.maxHeight))
+      if(_ac.value > ((_lastMaxHeight - _lastMinHeight)/_lastMaxHeight/2.0 + _lastMinHeight/_lastMaxHeight)) {
         _open();
-      else
+        widget.onPanelOpened?.call();
+      }
+      else if(_ac.value < (_lastMinHeight/_lastMaxHeight/2.0)) {
+        _hide();
+        widget.onPanelHided?.call();
+      }
+      else {
         _close();
+        widget.onPanelClosed?.call();
+      }
     }
 
   }
@@ -473,12 +490,14 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
   }
 
   //open the panel
-  Future<void> _open(){
-    return _ac.fling(velocity: 1.0);
+  Future<void> _open() {
+    return _ac.fling(velocity: 1.0).then((x) {
+      _panelState = PanelState.OPEN;
+    });
   }
 
   //hide the panel (completely offscreen)
-  Future<void> _hide(){
+  Future<void> _hide() {
     return _ac.fling(velocity: -1.0).then((x){
       setState(() {
         _isPanelVisible = false;
@@ -486,11 +505,45 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
       });
     });
   }
+//Unverified!!!!
+  Future<void> _changeMaxHeight(double newMaxValue, double newMinValue) {
+    if(!_isPanelVisible)
+      return Future.value();
+
+    if(_lastMaxHeight != newMaxValue || _lastMaxHeight != newMinValue) {
+      if(_panelState == PanelState.OPEN) {
+        return _ac.animateTo(newMaxValue/_lastMaxHeight).then((x) {
+          _calcHeights(newMaxValue, newMinValue);
+          _ac.value = 1.0;
+        });
+      }
+
+      if(_panelState == PanelState.CLOSED) {
+        return _ac.animateTo(newMinValue/_lastMinHeight).then((x) {
+          _calcHeights(newMaxValue, newMinValue);
+          _ac.value = 1.0;
+        });
+      }
+
+      _calcHeights(newMaxValue, newMinValue);
+      _ac.value = newMinValue/newMaxValue;
+    }
+    return Future.value();
+  }
 
   //show the panel (in collapsed mode)
-  Future<void> _show(){
+  Future<void> _show() {
     _isPanelVisible = true;
-    return _ac.animateTo(widget.minHeight/widget.maxHeight).then((x){ //_ac.fling(velocity: -1.0).then(
+    if(_panelState == PanelState.CLOSED) {
+      if(_lastMinHeight == widget.minHeight) {
+        _ac.value = _closedRelativeHeight;
+        return Future.value();
+      }
+      if(_lastMaxHeight == widget.maxHeight)
+        return _ac.animateTo(_closedRelativeHeight);
+    }
+    _ac.value *= widget.maxHeight/_lastMaxHeight;
+    return _ac.animateTo(_closedRelativeHeight).then((x){ //_ac.fling(velocity: -1.0).then(
       setState(() {
         _panelState = PanelState.CLOSED;
       });
@@ -526,11 +579,11 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
 
   //returns whether or not the
   //panel is closed
-  bool get _isPanelClosed => _ac.value == 0.0;
+  bool get _isPanelClosed => _ac.value == _closedRelativeHeight;
 
   //returns whether or not the
   //panel is shown/hidden
-  bool get _isPanelShown => _isPanelVisible;
+  bool get _isPanelShown => _panelState != PanelState.HIDDEN;
 
 }
 
@@ -577,6 +630,16 @@ class PanelController{
   Future<void> show(){
     assert(isAttached, "PanelController must be attached to a SlidingUpPanel");
     return _panelState._show();
+  }
+
+  Future<void> animatedChangeMaxHeight(double newMaxValue, double newMinValue) {
+    assert(isAttached, "PanelController must be attached to a SlidingUpPanel");
+    return _panelState._changeMaxHeight(newMaxValue, newMinValue);
+  }
+
+  void changeMaxHeight(double newMaxValue, double newMinValue) {
+    assert(isAttached, "PanelController must be attached to a SlidingUpPanel");
+    _panelState._calcHeights(newMaxValue, newMinValue);
   }
 
   /// Animates the panel position to the value.

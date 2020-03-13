@@ -134,10 +134,12 @@ class _HomePageState extends State<HomePage> {
                 color: Theme.of(context).primaryColor,
               ),
               onPressed: (){
-                _panelHeightOpen += 30;
+                var newValue = _panelHeightOpen += 15;
                 final _maxHeight = MediaQuery.of(context).size.height * .80;
-                if(_panelHeightOpen > _maxHeight)
-                  _panelHeightOpen = _maxHeight;
+                if(newValue > _maxHeight)
+                  newValue = _maxHeight;
+                _panelController.changeMaxHeight(newValue, _panelHeightClosed);
+                _panelHeightOpen = newValue;
               },
               backgroundColor: Colors.white,
             ),
@@ -152,9 +154,50 @@ class _HomePageState extends State<HomePage> {
                 color: Theme.of(context).primaryColor,
               ),
               onPressed: (){
-                _panelHeightOpen -= 30;
-                if(_panelHeightOpen < 170)
-                  _panelHeightOpen = 170;
+                var newValue = _panelHeightOpen - 15;
+                if(newValue < 170)
+                  newValue = 170;
+                _panelController.changeMaxHeight(newValue, _panelHeightClosed);
+                _panelHeightOpen = newValue;
+              },
+              backgroundColor: Colors.white,
+            ),
+          ),
+
+          Positioned(
+            right: 90.0,
+            bottom: _initFabHeight + 210,
+            child: FloatingActionButton(
+              child: Icon(
+                Icons.arrow_upward,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: (){
+                var newValue = _panelHeightClosed += 15;
+                final _maxHeight = _panelHeightOpen*.8;
+                if(newValue > _maxHeight)
+                  newValue = _maxHeight;
+                _panelController.changeMaxHeight(_panelHeightOpen, newValue);
+                _panelHeightClosed = newValue;
+              },
+              backgroundColor: Colors.white,
+            ),
+          ),
+
+          Positioned(
+            right: 90.0,
+            bottom: _initFabHeight + 280,
+            child: FloatingActionButton(
+              child: Icon(
+                Icons.arrow_downward,
+                color: Theme.of(context).primaryColor,
+              ),
+              onPressed: (){
+                var newValue = _panelHeightClosed - 15;
+                if(_panelHeightClosed < 30)
+                  newValue = 30;
+                _panelController.changeMaxHeight(_panelHeightOpen, newValue);
+                _panelHeightOpen = newValue;
               },
               backgroundColor: Colors.white,
             ),
