@@ -226,9 +226,7 @@ class _SlidingUpPanelState extends State<SlidingUpPanel> with SingleTickerProvid
         _sc.jumpTo(0);
     });
 
-    widget.controller?._addState(
-      this
-    );
+    widget.controller?._addState(this);
   }
 
   @override
